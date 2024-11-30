@@ -4,15 +4,22 @@
 
 void setup() {
   display_init();
-  init_buttons();
+  init_controls();
 
   Serial.begin(9600);
   Serial.println("start");
 }
 
 void loop() {
+  ulong t1 = millis();
+
   display_tick();
-  tick_buttons();
+  tick_controls();
+
+  ulong diff = millis() - t1;
+  if (diff > 100) {
+    Serial.println(diff);
+  }
 }
 
 void setCompileTime() {
