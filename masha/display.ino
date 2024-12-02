@@ -8,6 +8,8 @@
 // time
 #define TIME_X_POS 20
 #define TIME_Y_POS 3
+#define TIME_X_POS_MINI 48
+#define TIME_Y_POS_MINI 2
 
 // battery
 #define BATTERY_X_POS 116
@@ -29,8 +31,13 @@
 // display
 GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
 
+// VARS
+static byte mode = 0;
+static bool is_on = true;
+
 // TIME VARS
 ulong last_display_tick = 0;
+ulong bme_draw_tick = BME_TICK;
 
 void display_init() {
   setCompileTime();
@@ -40,11 +47,18 @@ void display_init() {
   oled.drawBitmap(HEART_X_POS, HEART_Y_POS, HEART, 8, 8);
   oled.drawBitmap(BME_X_POS, BME_Y_POS, THERMOMETR, 8, 8);
   oled.drawBitmap(BME_X_POS + 30, BME_Y_POS, CELSIUS, 8, 8);
+
+  draw_bar();
 }
 
-void display_time() {
-  oled.setScale(3);
-  oled.setCursor(TIME_X_POS, TIME_Y_POS);
+void display_time(bool mini) {
+  if (mini) {
+    oled.setScale(1);
+    oled.setCursor(TIME_X_POS_MINI, TIME_Y_POS_MINI);
+  } else {
+    oled.setScale(3);
+    oled.setCursor(TIME_X_POS, TIME_Y_POS);
+  }
   char buffer[2];
   sprintf(buffer, "%02d", hour());
   oled.print(buffer);
@@ -69,7 +83,7 @@ void display_info() {
 void display_tick() {
   if (millis() - last_display_tick > FPS) {
     display_info();
-    display_time();
+    display_time(false);
     oled.update();
 
     last_display_tick = millis();
@@ -90,14 +104,38 @@ void display_bpm() {
 }
 
 void display_bme() {
-  oled.setCursor(BME_X_POS + 12, BME_Y_POS);
-  oled.print("   ");
-  oled.setCursor(BME_X_POS + 12, BME_Y_POS);
+  if (millis() - bme_draw_tick > BME_TICK) {
+    oled.setCursor(BME_X_POS + 12, BME_Y_POS);
+    oled.print("   ");
+    oled.setCursor(BME_X_POS + 12, BME_Y_POS);
 
-  char buffer[3];
-  int temp = (int) get_temperature();
-  sprintf(buffer, "%+3d", temp);
-  oled.print(buffer);
+    char buffer[3];
+    int temp = (int)get_temperature();
+    sprintf(buffer, "%+3d", temp);
+    oled.print(buffer);
+    bme_draw_tick = millis();
+  }
+}
+
+void draw_bar() {
+  char mode_name[20];
+  strcpy_P(mode_name, (PGM_P)pgm_read_word(&MODES[mode % MODES_COUNT]));
+
+  oled.setCursor(0, 7);
+  oled.setScale(1);
+  oled.print(mode_name);
+}
+
+void switch_bar(int dir) {
+  if (dir > 0) {
+    mode = (mode + 1) % MODES_COUNT;
+  } else {
+    mode = (mode - 1) % MODES_COUNT;
+  }
+  Serial.print("mode: ");
+  Serial.println(mode);
+
+  draw_bar();
 }
 
 void display_connection_status() {
@@ -106,4 +144,12 @@ void display_connection_status() {
 
 void display_battery() {
   oled.drawBitmap(BATTERY_X_POS, BATTERY_Y_POS, BATTERY_DEAD, 8, 8);
+}
+
+byte get_mode() {
+  return mode;
+}
+
+bool is_display_on() {
+  return is_on;
 }

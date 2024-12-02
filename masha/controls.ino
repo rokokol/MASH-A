@@ -3,23 +3,24 @@
 #include <GRGB.h>
 #include <PulseSensorPlayground.h>
 #include <GyverBME280.h>
+#include "modes.h"
 
 // MACROS
 // common
-#define RIGHT_HOLD_START 300
-#define LEFT_CLICK_TIMEOUT 100
+#define left_HOLD_START 300
+#define right_CLICK_TIMEOUT 100
 
 // buttons
-#define BUTTON_L 8
+#define BUTTON_R 8
 #define BUTTON_C 5
-#define BUTTON_R 2
+#define BUTTON_L 2
 
 // laser
 #define LASER_PIN 3
 
 // pulse sensor
 #define PULSE_SENSOR_PIN A0
-#define PULSE_THRESHOLD 540
+#define PULSE_THRESHOLD 550
 #define PUSLSE_SENSOR_TICK 20
 
 // led
@@ -40,9 +41,9 @@ GRGB led(COMMON_CATHODE, LED_R, LED_G, LED_B);
 GyverBME280 bme;
 
 // buttons
-Button left_button(BUTTON_L);
-Button center_button(BUTTON_C);
 Button right_button(BUTTON_R);
+Button center_button(BUTTON_C);
+Button left_button(BUTTON_L);
 
 // pulse sensor
 PulseSensorPlayground pulseSensor;
@@ -64,12 +65,12 @@ static int pressure = 0;
 static int current_pulse = 0;
 
 // TIME VARS
-ulong bme_tick = 0;
+ulong bme_tick = BME_TICK;
 
 void init_controls() {
   // buttons
-  right_button.setHoldTimeout(RIGHT_HOLD_START);
-  left_button.setClickTimeout(LEFT_CLICK_TIMEOUT);
+  left_button.setHoldTimeout(left_HOLD_START);
+  right_button.setClickTimeout(right_CLICK_TIMEOUT);
 
   // pulse sensor
   pulseSensor.analogInput(PULSE_SENSOR_PIN);
@@ -83,31 +84,52 @@ void init_controls() {
 }
 
 void tick_controls() {
-  left_button.tick();
-  center_button.tick();
   right_button.tick();
+  center_button.tick();
+  left_button.tick();
 
-  // right button
-  if (right_button.hold()) {
+  // left button
+  if (left_button.hold()) {
+    Serial.println("left hold");
+
     if (!led_flag) {
-      right_hold();
+      left_hold();
     }
-  } else if (right_button.release()) {
-    right_hold_release();
-  } else if (right_button.step(1)) {
+  } else if (left_button.step(1)) {
+    Serial.println("left step 1");
+
     if (led_flag) {
       led_wheel += 8;
       led.setWheel8(led_wheel);
     }
+  } else if (left_button.click(1)) {
+    Serial.println("left click");
+
+    if (is_display_on()) {
+      switch_bar(-1);
+    }
+  } else if (left_button.release()) {
+    Serial.println("left release");
+
+    left_hold_release();
   }
 
-  // left button
-  if (left_button.click(2)) {
+  // right button
+  if (right_button.click(2)) {
+    Serial.println("right double click");
     toggle_led();
-  } else if (left_button.step(1)) {
+  } else if (right_button.step(1)) {
+    Serial.println("right step 1");
+
     if (led_flag) {
       led_wheel -= 8;
       led.setWheel8(led_wheel);
+    }
+  } else if (right_button.click(1)) {
+    Serial.println("right click");
+
+    if (is_display_on()) {
+      switch_bar(1);
     }
   }
 
@@ -115,14 +137,14 @@ void tick_controls() {
   check_bme();
 }
 
-void right_hold() {
+void left_hold() {
   if (!laser_flag) {
     laser_flag = true;
     digitalWrite(LASER_PIN, laser_flag);
   }
 }
 
-void right_hold_release() {
+void left_hold_release() {
   if (laser_flag) {
     laser_flag = false;
     digitalWrite(LASER_PIN, laser_flag);

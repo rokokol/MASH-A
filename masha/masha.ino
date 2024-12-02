@@ -3,10 +3,11 @@
 #define ulong unsigned long
 
 void setup() {
+  Serial.begin(9600);
+
   display_init();
   init_controls();
-
-  Serial.begin(9600);
+  
   Serial.println("start");
 }
 
