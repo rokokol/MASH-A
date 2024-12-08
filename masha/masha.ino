@@ -5,8 +5,8 @@
 void setup() {
   Serial.begin(9600);
 
+  controls_init();
   display_init();
-  init_controls();
   
   Serial.println("start");
 }
@@ -14,11 +14,12 @@ void setup() {
 void loop() {
   ulong t1 = millis();
 
+  controls_tick();
   display_tick();
-  tick_controls();
 
   ulong diff = millis() - t1;
   if (diff > 100) {
+    Serial.print("Time per tick: ");
     Serial.println(diff);
   }
 }

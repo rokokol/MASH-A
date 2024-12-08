@@ -1,11 +1,11 @@
-const char MODE_1[] PROGMEM = "<        TIME       >"; // Толко не бейте за этот костыль
-const char MODE_2[] PROGMEM = "<        METEO      >";
-const char MODE_3[] PROGMEM = "<        TIMER      >";
-const char MODE_4[] PROGMEM = "<      STOPWATCH    >";
-const char MODE_5[] PROGMEM = "<        FILES      >";
-const char MODE_6[] PROGMEM = "<        INFO       >";
+const char MODE_1[] = "<       TIME        >"; // Толко не бейте за этот костыль
+const char MODE_2[] = "<       METEO       >";
+const char MODE_3[] = "<       TIMER       >";
+const char MODE_4[] = "<     STOPWATCH     >";
+const char MODE_5[] = "<       FILES       >";
+const char MODE_6[] = "<       INFO        >";
 
-const char* const MODES[] PROGMEM = {
+const char* const MODES[] = {
   MODE_1,
   MODE_2,
   MODE_3,

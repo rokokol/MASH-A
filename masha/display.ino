@@ -26,32 +26,38 @@
 // bme
 #define BME_X_POS 36
 #define BME_Y_POS 0
+#define METEO_X 48
+#define METEO_Y 2
+#define METEO_ICON_X 32
+#define METEO_ICON_Y 16
+#define UPDATTE_TIME_TICK 5000
 
 // OBJECTS
 // display
 GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
 
 // VARS
-static byte mode = 0;
+static unsigned int mode = 0;
+static unsigned int display_mode = 0;
 static bool is_on = true;
+static bool big_timer = true;
+static bool update_time = true;
 
 // TIME VARS
 ulong last_display_tick = 0;
-ulong bme_draw_tick = BME_TICK;
+ulong temp_draw_tick = 0;
+ulong mode_draw_tick = 0;
 
 void display_init() {
   setCompileTime();
   oled.init();
   oled.clear();
 
-  oled.drawBitmap(HEART_X_POS, HEART_Y_POS, HEART, 8, 8);
-  oled.drawBitmap(BME_X_POS, BME_Y_POS, THERMOMETR, 8, 8);
-  oled.drawBitmap(BME_X_POS + 30, BME_Y_POS, CELSIUS, 8, 8);
-
-  draw_bar();
+  display_temp(true);
+  draw_bars();
 }
 
-void display_time(bool mini) {
+void display_time(bool mini = false) {
   if (mini) {
     oled.setScale(1);
     oled.setCursor(TIME_X_POS_MINI, TIME_Y_POS_MINI);
@@ -59,23 +65,15 @@ void display_time(bool mini) {
     oled.setScale(3);
     oled.setCursor(TIME_X_POS, TIME_Y_POS);
   }
-  char buffer[2];
-  sprintf(buffer, "%02d", hour());
-  oled.print(buffer);
 
-  if (second() % 2) {
-    oled.print(':');
-  } else {
-    oled.print(' ');
-  }
-  sprintf(buffer, "%02d", minute());
-  oled.print(buffer);
+  char time[6];
+  oled.print(parse_digits_to_time(time, hour(), minute()));
 }
 
 void display_info() {
   oled.setScale(1);
   display_bpm();
-  display_bme();
+  display_temp(false);
   display_connection_status();
   display_battery();
 }
@@ -83,7 +81,17 @@ void display_info() {
 void display_tick() {
   if (millis() - last_display_tick > FPS) {
     display_info();
-    display_time(false);
+
+    if (update_time) {
+      display_time(!big_timer);
+    }
+
+    switch (get_display_mode()) {
+      case METEO:
+        update_meteo();
+        break;
+    }
+
     oled.update();
 
     last_display_tick = millis();
@@ -103,8 +111,13 @@ void display_bpm() {
   }
 }
 
-void display_bme() {
-  if (millis() - bme_draw_tick > BME_TICK) {
+void display_temp(bool force) {
+  if (force || millis() - temp_draw_tick > BME_TICK) {
+    if (force) {
+      check_bme(true);
+    }
+
+    oled.setScale(1);
     oled.setCursor(BME_X_POS + 12, BME_Y_POS);
     oled.print("   ");
     oled.setCursor(BME_X_POS + 12, BME_Y_POS);
@@ -113,29 +126,32 @@ void display_bme() {
     int temp = (int)get_temperature();
     sprintf(buffer, "%+3d", temp);
     oled.print(buffer);
-    bme_draw_tick = millis();
+    temp_draw_tick = millis();
   }
 }
 
-void draw_bar() {
-  char mode_name[20];
-  strcpy_P(mode_name, (PGM_P)pgm_read_word(&MODES[mode % MODES_COUNT]));
+void draw_bars() {
+  char* mode_name = MODES[mode % MODES_COUNT];
 
   oled.setCursor(0, 7);
   oled.setScale(1);
   oled.print(mode_name);
+
+  oled.drawBitmap(HEART_X_POS, HEART_Y_POS, HEART, 8, 8);
+  oled.drawBitmap(BME_X_POS, BME_Y_POS, THERMOMETR, 8, 8);
+  oled.drawBitmap(BME_X_POS + 30, BME_Y_POS, CELSIUS, 8, 8);
 }
 
 void switch_bar(int dir) {
   if (dir > 0) {
     mode = (mode + 1) % MODES_COUNT;
   } else {
-    mode = (mode - 1) % MODES_COUNT;
+    mode = (MODES_COUNT + mode - 1) % MODES_COUNT;
   }
   Serial.print("mode: ");
-  Serial.println(mode);
+  Serial.println(mode                                         );
 
-  draw_bar();
+  draw_bars();
 }
 
 void display_connection_status() {
@@ -146,10 +162,95 @@ void display_battery() {
   oled.drawBitmap(BATTERY_X_POS, BATTERY_Y_POS, BATTERY_DEAD, 8, 8);
 }
 
-byte get_mode() {
+unsigned int get_mode() {
   return mode;
+}
+
+unsigned int get_display_mode() {
+  return display_mode;
 }
 
 bool is_display_on() {
   return is_on;
+}
+
+char* parse_digits_to_time(char* buffer, int first_digits, int second_digits) {
+  buffer[5] = '\0';
+  sprintf(buffer, "%02d", first_digits);
+
+  if (second() % 2) {
+    buffer[2] = ':';
+  } else {
+    buffer[2] = ' ';
+  }
+  char temp[2];
+
+  sprintf(temp, "%02d", second_digits);
+  buffer[3] = temp[0];
+  buffer[4] = temp[1];
+
+  return buffer;
+}
+
+void display_bme(bool another) {
+  oled.setScale(1);
+
+  oled.drawBitmap(METEO_ICON_X, METEO_ICON_Y, THERMOMETR, 8, 8);
+  oled.drawBitmap(METEO_ICON_X, METEO_ICON_Y + 8, HUMIDITY, 8, 8);
+  oled.drawBitmap(METEO_ICON_X, METEO_ICON_Y + 16, PRESSURE, 8, 8);
+
+  float hum = Bme.readHumidity();
+  float press = Bme.readPressure();
+
+  oled.setCursor(METEO_X, METEO_Y);
+  if (another) {
+    oled.print(get_temperature() + 273.15);
+    oled.print(' ');
+    oled.drawBitmap(METEO_ICON_X + 52, METEO_ICON_Y, KELVIN, 8, 8);
+  } else {
+    oled.print(get_temperature());
+    oled.drawBitmap(METEO_ICON_X + 48, METEO_ICON_Y, CELSIUS, 8, 8);
+  }
+
+  oled.setCursor(METEO_X, METEO_Y + 1);
+  oled.print(get_humidity());
+  oled.print(" %");
+
+  oled.setCursor(METEO_X, METEO_Y + 2);
+  if (another) {
+    oled.print(get_pressure() / 133.32, 2);
+    oled.print(" mmHg");
+  } else {
+    oled.print(get_pressure() / 1000, 2);
+    oled.print(" kPa");
+  }
+}
+
+void update_meteo() {
+  if (millis() - mode_draw_tick >= BME_TICK) {
+    display_bme(false);
+    mode_draw_tick = millis();
+  }
+}
+
+void switch_mode(int mode) {
+  oled.clear();
+  draw_bars();
+  display_temp(true);
+
+  switch (get_mode()) {
+    case TIME:
+      display_time();
+      display_mode = TIME;
+      big_timer = true;
+      update_time = true;
+      break;
+
+    case METEO:
+      display_bme(false);
+      display_mode = METEO;
+      update_time = false;
+      big_timer = false;
+      break;
+  }
 }
