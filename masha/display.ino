@@ -42,11 +42,14 @@ static unsigned int display_mode = 0;
 static bool is_on = true;
 static bool big_timer = true;
 static bool update_time = true;
+static bool is_stopwatch_started = false;
 
 // TIME VARS
-ulong last_display_tick = 0;
-ulong temp_draw_tick = 0;
-ulong mode_draw_tick = 0;
+static ulong last_display_tick = 0;
+static ulong temp_draw_tick = 0;
+static ulong mode_draw_tick = 0;
+static ulong stopwatch_started_millis = 0;
+static ulong last_stopwatch_diff = 0;
 
 void display_init() {
   setCompileTime();
@@ -58,13 +61,7 @@ void display_init() {
 }
 
 void display_time(bool mini = false) {
-  if (mini) {
-    oled.setScale(1);
-    oled.setCursor(TIME_X_POS_MINI, TIME_Y_POS_MINI);
-  } else {
-    oled.setScale(3);
-    oled.setCursor(TIME_X_POS, TIME_Y_POS);
-  }
+  set_cursor_for_time(mini);
 
   char time[6];
   oled.print(parse_digits_to_time(time, hour(), minute()));
@@ -87,8 +84,18 @@ void display_tick() {
     }
 
     switch (get_display_mode()) {
+      case TIME:
+        if (is_stopwatch_correct() && last_stopwatch_diff >= 1000) {
+          display_stopwatch(true);
+        }
+        break;
+
       case METEO:
         update_meteo();
+        break;
+
+      case STOPWATCH:
+        display_stopwatch(false);
         break;
     }
 
@@ -131,7 +138,7 @@ void display_temp(bool force) {
 }
 
 void draw_bars() {
-  char* mode_name = MODES[mode % MODES_COUNT];
+  const char* mode_name = MODES[mode % MODES_COUNT];
 
   oled.setCursor(0, 7);
   oled.setScale(1);
@@ -149,7 +156,7 @@ void switch_bar(int dir) {
     mode = (MODES_COUNT + mode - 1) % MODES_COUNT;
   }
   Serial.print("mode: ");
-  Serial.println(mode                                         );
+  Serial.println(mode);
 
   draw_bars();
 }
@@ -233,10 +240,66 @@ void update_meteo() {
   }
 }
 
+void display_stopwatch(bool mini) {
+  if (!is_stopwatch_correct()) {
+    return;
+  }
+
+  set_cursor_for_time(mini);
+  ulong diff;
+  if (is_stopwatch_started) {
+    diff = (millis() - stopwatch_started_millis) / 1000;
+  } else {
+    diff = last_stopwatch_diff / 1000;
+  }
+
+  char value[6];
+  oled.print(parse_digits_to_time(value, diff / 60, diff % 60));
+}
+
+void toggle_stopwatch() {
+  if (is_stopwatch_started) {
+    last_stopwatch_diff = millis() - stopwatch_started_millis;
+  } else {
+    stopwatch_started_millis = millis() - last_stopwatch_diff;
+  }
+
+  is_stopwatch_started = !is_stopwatch_started;
+}
+
+bool is_stopwatch_correct() {
+  return millis() - stopwatch_started_millis < 3600000;
+}
+
+void set_cursor_for_time(bool mini) {
+  if (mini) {
+    oled.setScale(1);
+    oled.setCursor(TIME_X_POS_MINI, TIME_Y_POS_MINI);
+  } else {
+    oled.setScale(3);
+    oled.setCursor(TIME_X_POS, TIME_Y_POS);
+  }
+}
+
+void reset_stopwatch() {
+  stopwatch_started_millis = millis();
+  last_stopwatch_diff = 0;
+  is_stopwatch_started = false;
+}
+
 void switch_mode(int mode) {
-  oled.clear();
-  draw_bars();
-  display_temp(true);
+  // erase workspase
+  oled.setCursor(0, 1);
+  oled.setScale(4);
+  oled.print("         ");
+
+  oled.setCursor(0, 3);
+  oled.setScale(4);
+  oled.print("         ");
+
+  if (is_stopwatch_started) {
+    toggle_stopwatch();
+  }
 
   switch (get_mode()) {
     case TIME:
@@ -250,6 +313,14 @@ void switch_mode(int mode) {
       display_bme(false);
       display_mode = METEO;
       update_time = false;
+      big_timer = false;
+      break;
+
+    case STOPWATCH:
+      display_time(true);
+      display_stopwatch(false);
+      display_mode = STOPWATCH;
+      update_time = true;
       big_timer = false;
       break;
   }

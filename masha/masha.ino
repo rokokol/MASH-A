@@ -1,9 +1,14 @@
 #include <TimeLib.h>
+#include <Wire.h>
 
 #define ulong unsigned long
+#define SDA_PIN 15 
+#define SCL_PIN 14 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
+  Wire.begin(SDA_PIN, SCL_PIN);
+  Serial.println("I2C Initialized!");
 
   controls_init();
   display_init();

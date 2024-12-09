@@ -1,6 +1,6 @@
 #include <OneButton.h>
 #include <EncButton.h>
-#include <GRGB.h>
+// #include <GRGB.h>
 #include <PulseSensorPlayground.h>
 #include <GyverBME280.h>
 #include "modes.h"
@@ -13,22 +13,22 @@
 #define CENTER_HOLD_START 300
 
 // buttons
-#define BUTTON_R 8
-#define BUTTON_C 4
+#define BUTTON_R 0
+#define BUTTON_C 16
 #define BUTTON_L 2
 
 // laser
-#define LASER_PIN 10
+#define LASER_PIN 12
 
 // pulse sensor
-#define PULSE_SENSOR_PIN A0
-#define PULSE_THRESHOLD 550
+#define PULSE_SENSOR_PIN 13
+#define PULSE_THRESHOLD 520
 #define PUSLSE_SENSOR_TICK 20
 
 // led
-#define LED_R 6
-#define LED_G 5
-#define LED_B 3
+// #define LED_R 6
+// #define LED_G 5
+// #define LED_B 3
 #define WHEEL_START 160
 
 // bme
@@ -37,15 +37,15 @@
 // modes
 #define TIME 0
 #define METEO 1
-#define TIMER 2
-#define STOPWATCH 3
-#define FILES 4
+#define STOPWATCH 2
+#define FILES 3
+#define VIDEO 4
 #define INFO 5
 
 
 // OBJECTS
 // led
-GRGB Led(COMMON_CATHODE, LED_R, LED_G, LED_B);
+// GRGB Led(COMMON_CATHODE, LED_R, LED_G, LED_B);
 
 // bme
 GyverBME280 Bme;
@@ -120,10 +120,10 @@ void handle_left_button() {
   } else if (LeftButton.step(1)) {
     Serial.println("left step 1");
 
-    if (led_flag) {
-      led_wheel += 8;
-      Led.setWheel8(led_wheel);
-    }
+    // if (led_flag) {
+    //   led_wheel += 8;
+    //   Led.setWheel8(led_wheel);
+    // }
   } else if (LeftButton.click(1)) {
     Serial.println("left click");
 
@@ -140,30 +140,40 @@ void handle_left_button() {
 void handle_center_button() {
   if (CenterButton.click(1)) {
     if (is_display_on()) {
-      switch_mode(get_mode());
-    }
-  } else if (CenterButton.hold()) {
-    if (is_display_on()) {
       switch (get_display_mode()) {
         case METEO:
           display_bme(true);
           break;
+        
+        case STOPWATCH:
+          toggle_stopwatch();
+          break;
       } 
     }
+  } else if (CenterButton.click(2)) {
+    if (is_display_on()) {
+      switch_mode(get_mode());
+    }
+  } else if (CenterButton.hold()) {
+    switch (get_display_mode()) {
+        case STOPWATCH:
+          reset_stopwatch();
+          break;
+      } 
   }
 }
 
 void handle_right_button() {
   if (RightButton.click(2)) {
     Serial.println("right double click");
-    toggle_led();
+    // toggle_led();
   } else if (RightButton.step(1)) {
     Serial.println("right step 1");
 
-    if (led_flag) {
-      led_wheel -= 8;
-      Led.setWheel8(led_wheel);
-    }
+    // if (led_flag) {
+    //   led_wheel -= 8;
+    //   Led.setWheel8(led_wheel);
+    // }
   } else if (RightButton.click(1)) {
     Serial.println("right click");
 
@@ -187,18 +197,18 @@ void left_hold_release() {
   }
 }
 
-void toggle_led() {
-  if (led_flag) {
-    led_flag = false;
-    Led.disable();
-    led_wheel = WHEEL_START;
-    Serial.println("led off");
-  } else {
-    led_flag = true;
-    Led.enable();
-    Led.setRGB(255, 255, 255);
-  }
-}
+// void toggle_led() {
+//   if (led_flag) {
+//     led_flag = false;
+//     Led.disable();
+//     led_wheel = WHEEL_START;
+//     Serial.println("led off");
+//   } else {
+//     led_flag = true;
+//     Led.enable();
+//     Led.setRGB(255, 255, 255);
+//   }
+// }
 
 int get_pulse() {
   if (pulseSensor.sawStartOfBeat()) {
