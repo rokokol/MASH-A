@@ -1,6 +1,5 @@
 #include <OneButton.h>
 #include <EncButton.h>
-// #include <GRGB.h>
 #include <PulseSensorPlayground.h>
 #include <GyverBME280.h>
 #include "modes.h"
@@ -9,6 +8,7 @@
 // buttons
 #define LEFT_HOLD_START 300
 #define LEFT_CLICK_TIMEOUT 200
+#define CENTER_CLICK_TIMEOUT 200
 #define RIGHT_CLICK_TIMEOUT 200
 #define CENTER_HOLD_START 300
 
@@ -29,7 +29,8 @@
 // #define LED_R 6
 // #define LED_G 5
 // #define LED_B 3
-#define WHEEL_START 160
+// #define WHEEL_START 160
+#define LED_PIN 4
 
 // bme
 #define BME_TICK 5000
@@ -38,9 +39,7 @@
 #define TIME 0
 #define METEO 1
 #define STOPWATCH 2
-#define FILES 3
-#define VIDEO 4
-#define INFO 5
+// #define WIFI 3
 
 
 // OBJECTS
@@ -64,7 +63,7 @@ bool laser_flag = false;
 
 // led
 bool led_flag = false;
-static byte led_wheel = WHEEL_START;
+// static byte led_wheel = WHEEL_START;
 
 // bme
 static float temperature = 0;
@@ -81,6 +80,7 @@ void controls_init() {
   // buttons
   LeftButton.setHoldTimeout(LEFT_HOLD_START);
   LeftButton.setClickTimeout(LEFT_CLICK_TIMEOUT);
+  CenterButton.setClickTimeout(CENTER_CLICK_TIMEOUT);
   RightButton.setClickTimeout(RIGHT_CLICK_TIMEOUT);
   CenterButton.setHoldTimeout(CENTER_HOLD_START);
 
@@ -93,7 +93,11 @@ void controls_init() {
   if (!Bme.begin(0x76)) Serial.println("BME Error!");
   check_bme(true);
 
+  // laser
   pinMode(LASER_PIN, OUTPUT);
+
+  // led
+  pinMode(LED_PIN, OUTPUT);
 }
 
 void controls_tick() {
@@ -106,7 +110,7 @@ void controls_tick() {
   handle_center_button();
   handle_right_button();
 
-  // bme 
+  // bme
   check_bme(false);
 }
 
@@ -130,6 +134,10 @@ void handle_left_button() {
     if (is_display_on()) {
       switch_bar(-1);
     }
+  } else if (LeftButton.click(2)) {
+    Serial.println("left double click");
+
+    make_photo();
   } else if (LeftButton.releaseStep()) {
     Serial.println("left step release");
 
@@ -139,34 +147,39 @@ void handle_left_button() {
 
 void handle_center_button() {
   if (CenterButton.click(1)) {
+    Serial.println("Center click 1");
     if (is_display_on()) {
       switch (get_display_mode()) {
         case METEO:
           display_bme(true);
           break;
-        
+
         case STOPWATCH:
           toggle_stopwatch();
           break;
-      } 
+      }
     }
   } else if (CenterButton.click(2)) {
+    Serial.println("Center click 2");
+
     if (is_display_on()) {
       switch_mode(get_mode());
     }
   } else if (CenterButton.hold()) {
+    Serial.println("Center hold");
+
     switch (get_display_mode()) {
-        case STOPWATCH:
-          reset_stopwatch();
-          break;
-      } 
+      case STOPWATCH:
+        reset_stopwatch();
+        break;
+    }
   }
 }
 
 void handle_right_button() {
   if (RightButton.click(2)) {
     Serial.println("right double click");
-    // toggle_led();
+    toggle_led();
   } else if (RightButton.step(1)) {
     Serial.println("right step 1");
 
@@ -197,25 +210,29 @@ void left_hold_release() {
   }
 }
 
-// void toggle_led() {
-//   if (led_flag) {
-//     led_flag = false;
-//     Led.disable();
-//     led_wheel = WHEEL_START;
-//     Serial.println("led off");
-//   } else {
-//     led_flag = true;
-//     Led.enable();
-//     Led.setRGB(255, 255, 255);
-//   }
-// }
+void toggle_led() {
+  led_flag = !led_flag;
+  digitalWrite(LED_PIN, led_flag);
+  Serial.print("led mode: ");
+  Serial.println(laser_flag);
+  // if (led_flag) {
+  //   led_flag = false;
+  //   Led.disable();
+  //   led_wheel = WHEEL_START;
+  //   Serial.println("led off");
+  // } else {
+  //   led_flag = true;
+  //   Led.enable();
+  //   Led.setRGB(255, 255, 255);
+  // }
+}
 
 int get_pulse() {
   if (pulseSensor.sawStartOfBeat()) {
     int bpm = pulseSensor.getBeatsPerMinute();
     if (bpm < 200 && bpm > 10) {
       current_pulse = bpm;
-    } 
+    }
   }
 
   return current_pulse;
@@ -229,6 +246,9 @@ void check_bme(bool force) {
 
     bme_tick = millis();
   }
+}
+
+void make_photo() {
 }
 
 double get_temperature() {
